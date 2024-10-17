@@ -1,6 +1,7 @@
 import { DataTypes, Sequelize, Model, Optional } from 'sequelize';
 import bcrypt from 'bcrypt';
 
+
 interface UserAttributes {
   id: number;
   username: string;
@@ -17,10 +18,15 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 
-  // Hash the password before saving the user
+  // Method to hash the password
   public async setPassword(password: string) {
     const saltRounds = 10;
     this.password = await bcrypt.hash(password, saltRounds);
+  }
+
+  // Method to compare password
+  public async comparePassword(plainPassword: string): Promise<boolean> {
+    return await bcrypt.compare(plainPassword, this.password);
   }
 }
 
@@ -35,6 +41,7 @@ export function UserFactory(sequelize: Sequelize): typeof User {
       username: {
         type: DataTypes.STRING,
         allowNull: false,
+        unique: true, // Optional: enforce unique usernames
       },
       password: {
         type: DataTypes.STRING,
@@ -49,7 +56,10 @@ export function UserFactory(sequelize: Sequelize): typeof User {
           await user.setPassword(user.password);
         },
         beforeUpdate: async (user: User) => {
-          await user.setPassword(user.password);
+          // Only hash the password if it has been modified
+          if (user.changed('password')) {
+            await user.setPassword(user.password);
+          }
         },
       }
     }
